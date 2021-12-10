@@ -21,8 +21,8 @@ def sync(device: torch.device):
     if device.type == "cuda":
         torch.cuda.synchronize(device)
 
-def train(dataset_root: Path, total_steps=150_000, schedule_fn=get_linear_schedule_with_warmup, loss_fn='softmax',
-          logging_interval_steps=50):
+def train(dataset_root: Path, total_steps=250_000, schedule_fn=get_linear_schedule_with_warmup, loss_fn='softmax',
+          logging_interval_steps=50, out_dir='archive', save_steps=5e4):
 
     dataloader = SpeakerVerificationDataLoader(SpeakerVerificationDataset(dataset_root),
                                                speakers_per_batch, utterances_per_speaker,
