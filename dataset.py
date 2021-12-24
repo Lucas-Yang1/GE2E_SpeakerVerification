@@ -48,6 +48,9 @@ class SpeakerBatch:
 
 
 class Speaker:
+    """
+    Speaker->Utterances
+    """
     def __init__(self, root: Path):
         self.root = root
         self.name = root.name

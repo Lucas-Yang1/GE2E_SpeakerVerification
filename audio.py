@@ -16,7 +16,6 @@ except:
 int16_max = (2 ** 15) - 1
 
 
-wav = 'C:/Users/yhaner/Desktop/G0017.tar/G0017/G0017/T0055G0017S0036.wav'
 
 def preprocess_wav(fpath_or_wav: Union[str, Path, np.ndarray],
                    source_sr: Optional[int] = None,
@@ -111,9 +110,12 @@ def trim_long_silences(wav):
 
 
 def normalize_volume(wav, target_dBFS, increase_only=False, decrease_only=False):
+    """
+    noralize_volume to target_dBFS
+    """
     if increase_only and decrease_only:
         raise ValueError("Both increase only and decrease only are set")
-    dBFS_change = target_dBFS - 10 * np.log10(np.mean(wav ** 2))
+    dBFS_change = target_dBFS - 20 * np.log10(np.mean(wav ** 2)) # 正确的应该是 target_dBFS - 10 * np.log10(np.mean(wav ** 2))
     if (dBFS_change < 0 and increase_only) or (dBFS_change > 0 and decrease_only):
         return wav
     return wav * (10 ** (dBFS_change / 20))

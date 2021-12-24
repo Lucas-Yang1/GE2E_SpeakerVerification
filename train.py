@@ -7,7 +7,7 @@ from pathlib import Path
 from model import SpeakerEncoder
 import torch
 import logging
-
+from visualization import Visualiztion
 def get_logger():
     logger = logging.getLogger('training')
     fh = logging.FileHandler('training.log')
@@ -21,8 +21,8 @@ def sync(device: torch.device):
     if device.type == "cuda":
         torch.cuda.synchronize(device)
 
-def train(dataset_root: Path, total_steps=250_000, schedule_fn=get_linear_schedule_with_warmup, loss_fn='softmax',
-          logging_interval_steps=50, out_dir='archive', save_steps=5e4):
+def train(dataset_root: Path, total_steps=300_000, schedule_fn=get_linear_schedule_with_warmup, loss_fn='softmax',
+          logging_interval_steps=50, out_dir:Path = Path('archive'), save_steps=5_000, init_step=None):
 
     dataloader = SpeakerVerificationDataLoader(SpeakerVerificationDataset(dataset_root),
                                                speakers_per_batch, utterances_per_speaker,
@@ -34,7 +34,6 @@ def train(dataset_root: Path, total_steps=250_000, schedule_fn=get_linear_schedu
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     loss_device = torch.device('cpu')
 
-
     model = SpeakerEncoder(device, loss_device)
     if loss_fn == 'contrast':
         model.get_loss = model.contrast_loss
@@ -42,16 +41,22 @@ def train(dataset_root: Path, total_steps=250_000, schedule_fn=get_linear_schedu
         loss_fn = 'softmax'
         model.get_loss = model.softmax_loss
 
+    viz = Visualiztion(loss_fn)
+    if init_step is not None:
+        model.load_state_dict(torch.load(out_dir.joinpath('%d_%s_model.pth' % (init_step, loss_fn))))
     optimizer = AdamW(model.parameters(), lr=learning_rate_init)
     p = 0.15
     if schedule_fn != None:
         schedule = schedule_fn(optimizer,
                                num_warmup_steps=int(total_steps*p),
                                num_training_steps=total_steps)
+        if init_step is not None:
+            schedule._step_count = init_step
+            schedule.step()
 
-    logger.info("dataset_root: %s\ttotal_steps: %d\tloss_fn: %s\tschedule_fn: %s\tp: %f\tdevice: %s\tloss_device: %s" %
-                (dataset_root, total_steps, loss_fn, schedule_fn.__name__, p, device, loss_device))
-    init_step = 1
+    logger.info("dataset_root: %s\ttotal_steps: %d\tloss_fn: %s\tschedule_fn: %s\tp: %f\tdevice: %s\tloss_device: %s\tcurrent_lr: %d" %
+                (dataset_root, total_steps, loss_fn, schedule_fn.__name__, p, device, loss_device, schedule.get_lr()[0]))
+    init_step = 1 if init_step == None else init_step+1
     model.train()
     for step, speaker_batch in enumerate(dataloader, init_step):
         t1 = datetime.now()
@@ -66,6 +71,7 @@ def train(dataset_root: Path, total_steps=250_000, schedule_fn=get_linear_schedu
         loss = model.get_loss(embeds)
         sync(loss_device)
 
+        viz.update(loss.item(), step)
         # backward pass
         model.zero_grad()
         loss.backward()
@@ -78,7 +84,17 @@ def train(dataset_root: Path, total_steps=250_000, schedule_fn=get_linear_schedu
         if step > total_steps:
             break
         if step % logging_interval_steps == 0:
-            logger.info(f"[{step}/{total_steps}] loss: {loss:.4f}, time_cost: {(t2-t1).total_seconds():.2f}")
+            logger.info(f"[{step}/{total_steps}] loss: {loss.item():.4f}, time_cost: {(t2-t1).total_seconds():.2f}")
+
+        if step % save_steps == 0:
+            logger.info(f"save step : {step} model   out_path: {out_dir.joinpath(str(step)+'_'+ loss_fn+'_model.pth')}")
+            torch.save(model.state_dict(), out_dir.joinpath(str(step)+'_'+ loss_fn+'_model.pth'))
+            viz.save()
 
     logger.info("-"*40 + "final" + "-" * 40)
+    viz.save()
 
+if __name__ == '__main__':
+    dataset_root = Path('./postdata')
+    train(dataset_root, loss_fn='softmax', init_step=120_000)
+    # train(dataset_root, loss_fn='contrast')

@@ -108,11 +108,13 @@ class SpeakerEncoder(nn.Module):
         sim_mat = sim_mat.sigmoid()
 
         mask_matrix = 1 - np.eye(speaker_per_batch)
-        loss = torch.tensor([speaker_per_batch * utterances_per_speaker], dtype=torch.float).to(self.loss_device)
+        loss = torch.zeros([1], dtype=torch.float).to(self.loss_device)
         for j in range(speaker_per_batch):
             mask = np.where(mask_matrix[j])[0]
             loss += torch.max(sim_mat[j, :, mask], dim=-1)[0].sum() -\
                 sim_mat[j, :, j].sum()
+        loss /= (speaker_per_batch * utterances_per_speaker)
+        loss = 1-loss
         return loss
 
     def _init_weight(self):

@@ -55,7 +55,7 @@ def _process_data(speaker_dirs, dataset_name, dataset_root:Path, out_dir: Path, 
 
             out_fpath = speaker_out_dir.joinpath(out_fname)
             np.save(out_fpath, frames)
-            logger.info('{}, {} : {}'.format(out_fpath.parts[0], 'duaration', len(wav) / sampling_rate))
+            logger.info('{}, {} : {}'.format(out_fname, 'duaration', len(wav) / sampling_rate))
             sources_file.write("%s,%s\n" % (out_fname, in_fpath))
 
         sources_file.close()
@@ -67,7 +67,7 @@ def _process_data(speaker_dirs, dataset_name, dataset_root:Path, out_dir: Path, 
 dataset_root =Path('D:\\dataset\\aidatatang_200zh\\aidatatang_200zh~\\aidatatang_200zh')
 out_dir =Path('./post_data')
 
-def prcess_adatatang(dataset_root:Path , out_dir:Path, skip_existing=False):
+def process_adatatang(dataset_root:Path , out_dir:Path, skip_existing=False):
     dataset_name = 'adatatang_200zh'
     speaker_dirs = list(Path(dataset_root).joinpath("corpus", "train").glob('G[0-9][0-9][0-9][0-9]'))
 
